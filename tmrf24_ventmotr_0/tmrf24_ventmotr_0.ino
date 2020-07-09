@@ -6,9 +6,9 @@
 
 #define DIR_OPEN     0         // 
 #define DIR_CLOSE    1
-#define N_ENABLE_PIN 5
-#define DIR_PIN      6
-#define MOVE_PIN     7
+#define N_ENABLE_PIN 4
+#define DIR_PIN      5
+#define MOVE_PIN     6
 #define NO_CHECK     1      // flag for button presses to bypass position check
 #define CMD_OPEN     55
 #define CMD_CLOSE    66
@@ -95,8 +95,8 @@ int moveStep(int direction, int noCheck=0) {
 // -----------------------------------------------------------
 // Button management for setting limits
 //
-#define OPEN_BTN_PIN    4
-#define CLOSE_BTN_PIN   3
+#define OPEN_BTN_PIN    3
+#define CLOSE_BTN_PIN   2
 #define SHORT_PRESS_TIME  500   // 500 milliseconds
 #define LONG_PRESS_TIME   2000  // 2000 milliseconds
 
