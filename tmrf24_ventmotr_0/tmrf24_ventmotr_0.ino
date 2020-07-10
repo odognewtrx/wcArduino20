@@ -141,6 +141,9 @@ void button_loop() {
       setLimit(DIR_CLOSE, sensorValue);
   }
 }
+unsigned char prevCmd = 0;
+int prevSensor = 2000;
+long prevMillis = 0;
 // -----------------------------------------------------------------------------
 // SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP
 // -----------------------------------------------------------------------------
@@ -202,11 +205,25 @@ void loop() {
 
     // Go and read the data
     while (radio.available()) { radio.read( &data, sizeof(char)); }
- 
-    //Serial.print("Got Command ");
-    //Serial.print(data);
-    //Serial.print("  sensor:  ");
-    //Serial.println(sensorValue);
+
+    if ( (data != prevCmd) || ((millis() > prevMillis + 2000) && (
+          (sensorValue < prevSensor - 5) ||
+          (sensorValue > prevSensor + 5))) ) {
+        //Serial.print("  prevSensor:  ");
+        //Serial.print(prevSensor);
+        //Serial.print("  prevMillis:  ");
+        //Serial.print(prevMillis);
+        //Serial.print("  Millis:  ");
+        //Serial.print(millis());
+        Serial.print("Got Command ");
+        Serial.print(data);
+        Serial.print("  sensor:  ");
+        Serial.println(sensorValue);
+        prevMillis = millis();
+        prevSensor = sensorValue;
+    }
+
+    prevCmd = data;
 
     if (data == CMD_OPEN)  sensorValue = moveStep(DIR_OPEN);
     if (data == CMD_CLOSE) sensorValue = moveStep(DIR_CLOSE);
