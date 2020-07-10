@@ -7,8 +7,8 @@
 #define DIR_OPEN     0         // 
 #define DIR_CLOSE    1
 #define N_ENABLE_PIN 4
-#define DIR_PIN      5
-#define MOVE_PIN     6
+#define DIR_PIN      6
+#define MOVE_PIN     5
 #define NO_CHECK     1      // flag for button presses to bypass position check
 #define CMD_OPEN     55
 #define CMD_CLOSE    66
@@ -57,6 +57,11 @@ Limits getLimits() {
   }
 
   if (curLimits.valid != 2) curLimits.valid = 0;
+  Serial.println("");
+  Serial.println("Limits:");
+  Serial.println(curLimits.valid);
+  Serial.println(curLimits.minLim);
+  Serial.println(curLimits.maxLim);
 }
 
 void setLimit(int dir, int lim) {
@@ -67,6 +72,7 @@ void setLimit(int dir, int lim) {
   sLim.valid = LIM_VALID;
   sLim.lim = lim;
   EEPROM.put(maxNotMin*sizeof(Limit), sLim);
+  getLimits();
 }
 
 // -----------------------------------------------------------
@@ -95,8 +101,8 @@ int moveStep(int direction, int noCheck=0) {
 // -----------------------------------------------------------
 // Button management for setting limits
 //
-#define OPEN_BTN_PIN    3
-#define CLOSE_BTN_PIN   2
+#define OPEN_BTN_PIN    2
+#define CLOSE_BTN_PIN   3
 #define SHORT_PRESS_TIME  500   // 500 milliseconds
 #define LONG_PRESS_TIME   2000  // 2000 milliseconds
 
@@ -150,19 +156,11 @@ void setup() {
   closeBtn.setDebounceTime(50);
 
   getLimits();
-  Serial.println("");
-  Serial.println("Limits:");
-  Serial.println(curLimits.valid);
-  Serial.println(curLimits.minLim);
-  Serial.println(curLimits.maxLim);
-
+  
   if (curLimits.valid < 1) {
     Serial.println("Setting Limits near middle...");
     setLimit(DIR_CLOSE, 500);
     setLimit(DIR_OPEN, 525);
-    Serial.println(curLimits.valid);
-    Serial.println(curLimits.minLim);
-    Serial.println(curLimits.maxLim);
   }
  
   Serial.println("THIS IS THE RECEIVER CODE - YOU NEED THE OTHER ARDUINO TO TRANSMIT");
@@ -205,10 +203,10 @@ void loop() {
     // Go and read the data
     while (radio.available()) { radio.read( &data, sizeof(char)); }
  
-    Serial.print("Got Command ");
-    Serial.print(data);
-    Serial.print("  sensor:  ");
-    Serial.println(sensorValue);
+    //Serial.print("Got Command ");
+    //Serial.print(data);
+    //Serial.print("  sensor:  ");
+    //Serial.println(sensorValue);
 
     if (data == CMD_OPEN)  sensorValue = moveStep(DIR_OPEN);
     if (data == CMD_CLOSE) sensorValue = moveStep(DIR_CLOSE);
