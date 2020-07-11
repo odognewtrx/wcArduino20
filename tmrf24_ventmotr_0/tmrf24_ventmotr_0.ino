@@ -221,9 +221,8 @@ void loop() {
         Serial.println(sensorValue);
         prevMillis = millis();
         prevSensor = sensorValue;
+        prevCmd = data;
     }
-
-    prevCmd = data;
 
     if (data == CMD_OPEN)  sensorValue = moveStep(DIR_OPEN);
     if (data == CMD_CLOSE) sensorValue = moveStep(DIR_CLOSE);
