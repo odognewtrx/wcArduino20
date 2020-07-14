@@ -196,8 +196,8 @@ void loop() {
   radio.startListening();
 
   // Anmations should take the same time as the movement
-  if (cmdToRun == 55) animOpen();
-  if (cmdToRun == 66) animClose();
+  if ((cmdToRun == 55) && (sensorValue < 255)) animOpen();
+  if ((cmdToRun == 66) && (sensorValue > 0  )) animClose();
   
   // But we won't listen for long, 200 milliseconds is enough
   unsigned long started_waiting_at = millis();
