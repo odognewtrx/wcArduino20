@@ -172,10 +172,12 @@ void setup() {
   radio.begin();
 
   // Set the transmit power to lowest available to prevent power supply related issues
-  radio.setPALevel(RF24_PA_MIN);
+  //radio.setPALevel(RF24_PA_MIN);
+  radio.setPALevel(RF24_PA_LOW);
 
   // Set the speed of the transmission to the quickest available
-  radio.setDataRate(RF24_2MBPS);
+  //radio.setDataRate(RF24_2MBPS);
+  radio.setDataRate(RF24_1MBPS);
 
   // Use a channel unlikely to be used by Wifi, Microwave ovens etc
   radio.setChannel(124);
