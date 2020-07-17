@@ -208,6 +208,7 @@ void loop() {
     // Go and read the data
     while (radio.available()) { radio.read( &data, sizeof(char)); }
 
+    //if ( millis() > prevMillis + 2000 ) {
     if ( (data != prevCmd) || ((millis() > prevMillis + 2000) && (
           (sensorValue < prevSensor - 5) ||
           (sensorValue > prevSensor + 5))) ) {
