@@ -79,8 +79,8 @@ uint8_t ledState = ST_LED_NORMAL;
 // --------------------------------------
 // Buttons
 //
-ezButton openBtn(A0);
-ezButton closeBtn(A1);
+ezButton openBtn(A1);
+ezButton closeBtn(A2);
 
 unsigned long openPressTime  = 0;
 unsigned long openRelTime = 1;
