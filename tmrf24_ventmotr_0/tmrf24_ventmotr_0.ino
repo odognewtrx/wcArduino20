@@ -9,6 +9,7 @@
 #define N_ENABLE_PIN 4
 #define DIR_PIN      6
 #define MOVE_PIN     5
+#define LIM_LED_PIN  19     // A5 as output
 #define NO_CHECK     1      // flag for button presses to bypass position check
 #define CMD_OPEN     55
 #define CMD_CLOSE    66
@@ -72,6 +73,12 @@ void setLimit(int dir, int lim) {
   sLim.valid = LIM_VALID;
   sLim.lim = lim;
   EEPROM.put(maxNotMin*sizeof(Limit), sLim);
+  for (int i=0; i<5; i++) {
+      digitalWrite(LIM_LED_PIN, HIGH);
+      delay(100);
+      digitalWrite(LIM_LED_PIN, LOW);
+      delay(100);
+  }
   getLimits();
 }
 
@@ -160,6 +167,8 @@ void setup() {
 
   pinMode(DIR_PIN, OUTPUT);
   pinMode(MOVE_PIN, OUTPUT);
+  pinMode(LIM_LED_PIN, OUTPUT);
+  digitalWrite(LIM_LED_PIN, LOW);
   pinMode(N_ENABLE_PIN, OUTPUT);
   digitalWrite(N_ENABLE_PIN, HIGH);
 
