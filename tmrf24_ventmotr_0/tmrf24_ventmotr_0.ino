@@ -79,7 +79,7 @@ void setLimit(int dir, int lim) {
 // Stepper Movement
 //
 int moveStep(int direction, int noCheck=0) {
-  if ( noCheck ||
+  if ( (noCheck == 1) ||
        ((direction == DIR_OPEN) && (sensorValue < curLimits.maxLim)) ||
        ((direction == DIR_CLOSE) && (sensorValue > curLimits.minLim)) ) {
 
@@ -103,7 +103,7 @@ int moveStep(int direction, int noCheck=0) {
 //
 #define OPEN_BTN_PIN    2
 #define CLOSE_BTN_PIN   3
-#define SHORT_PRESS_TIME  500   // 500 milliseconds
+#define SHORT_PRESS_TIME  1000  // 1000 milliseconds
 #define LONG_PRESS_TIME   2000  // 2000 milliseconds
 
 ezButton openBtn(OPEN_BTN_PIN);
@@ -113,6 +113,7 @@ unsigned long pressedTime  = 0;
 unsigned long releasedTime = 0;
 
 void button_loop() {
+
   if(openBtn.isPressed())
     pressedTime = millis();
 
@@ -120,11 +121,15 @@ void button_loop() {
     pressedTime = millis();
 
   if(openBtn.isReleased()) {
+
     releasedTime = millis();
     long pressDuration = releasedTime - pressedTime;
 
-    if( pressDuration < SHORT_PRESS_TIME )
+    if( pressDuration < SHORT_PRESS_TIME ) {
       sensorValue = moveStep(DIR_OPEN, NO_CHECK);
+      Serial.print("Local Open button pressed. Sensor: ");
+      Serial.println(sensorValue);
+    }
 
     if( pressDuration > LONG_PRESS_TIME )
       setLimit(DIR_OPEN, sensorValue);
@@ -134,8 +139,11 @@ void button_loop() {
     releasedTime = millis();
     long pressDuration = releasedTime - pressedTime;
 
-    if( pressDuration < SHORT_PRESS_TIME )
+    if( pressDuration < SHORT_PRESS_TIME ) {
       sensorValue = moveStep(DIR_CLOSE, NO_CHECK);
+      Serial.print("Local Close button pressed. Sensor: ");
+      Serial.println(sensorValue);
+    }
 
     if( pressDuration > LONG_PRESS_TIME )
       setLimit(DIR_CLOSE, sensorValue);
@@ -239,4 +247,5 @@ void loop() {
     // Now, resume listening so we catch the next packets.
     radio.startListening();
   }
+  delay(200);
 }
