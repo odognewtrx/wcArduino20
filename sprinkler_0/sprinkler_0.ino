@@ -44,9 +44,6 @@ void button_loop() {
     }
   }
 
-unsigned char prevCmd = 0;
-int prevSensor = 2000;
-long prevMillis = 0;
 // -----------------------------------------------------------------------------
 // SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP
 // -----------------------------------------------------------------------------
@@ -60,57 +57,13 @@ void setup() {
 
   addMinBtn.setDebounceTime(50);
   cancelBtn.setDebounceTime(50);
-
 }
 
-// -----------------------------------------------------------------------------
-// We are LISTENING on this device only (although we do transmit a response)
-// -----------------------------------------------------------------------------
 void loop() {
   addMinBtn.loop();
   cancelBtn.loop();
 
-  sensorValue = analogRead(sensorPin);
   button_loop();        // Check for button operations
 
-  unsigned char data;   // Store received data
-
-  // Is there any data for us to get?
-  if ( radio.available()) {
-
-    // Go and read the data
-    while (radio.available()) { radio.read( &data, sizeof(char)); }
-
-    //if ( millis() > prevMillis + 2000 ) {
-    if ( (data != prevCmd) || ((millis() > prevMillis + 2000) && (
-          (sensorValue < prevSensor - 5) ||
-          (sensorValue > prevSensor + 5))) ) {
-        //Serial.print("  prevSensor:  ");
-        //Serial.print(prevSensor);
-        //Serial.print("  prevMillis:  ");
-        //Serial.print(prevMillis);
-        //Serial.print("  Millis:  ");
-        //Serial.print(millis());
-        Serial.print("Got Command ");
-        Serial.print(data);
-        Serial.print("  sensor:  ");
-        Serial.println(sensorValue);
-        prevMillis = millis();
-        prevSensor = sensorValue;
-        prevCmd = data;
-    }
-
-    if (data == CMD_OPEN)  sensorValue = moveStep(DIR_OPEN);
-    if (data == CMD_CLOSE) sensorValue = moveStep(DIR_CLOSE);
-
-    // Send back sensor reading mapped into 8 bits
-    radio.stopListening();
-    data = map( constrain(sensorValue, curLimits.minLim, curLimits.maxLim),         //constrain
-                                       curLimits.minLim, curLimits.maxLim, 0, 255); //map
-    radio.write( &data, sizeof(char) );
-
-    // Now, resume listening so we catch the next packets.
-    radio.startListening();
-  }
   delay(200);
 }
