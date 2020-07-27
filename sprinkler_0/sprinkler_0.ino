@@ -43,6 +43,7 @@ void button_loop() {
       Serial.println("Cancelling sprinkler...");
     }
   }
+}
 
 // -----------------------------------------------------------------------------
 // SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP
