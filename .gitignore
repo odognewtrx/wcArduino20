@@ -1,4 +1,5 @@
 *.un~
 *~
+*.json
 libraries
 drivers
