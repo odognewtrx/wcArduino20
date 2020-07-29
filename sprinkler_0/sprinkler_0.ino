@@ -24,27 +24,42 @@ class ProgState {
     static bool runState;
     static unsigned long runMillis;
 
-    // Constructor: set private vars
     ProgState() {
-      state_mins = 0;
-      state_ticks = 0;
-      num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
+      reset();
     }
 
-    void reset() {   // reset public and private vars
+    void reset() {
       minsLeft = 0;
       setState = false;
       runState = false;
       runMillis = 0;
+    }
+};
+
+ProgState pstate = ProgState();
+// need to set these before use in child class
+int  ProgState::minsLeft = pstate.minsLeft;
+bool ProgState::setState = pstate.setState;
+bool ProgState::runState = pstate.runState;
+unsigned long ProgState::runMillis = pstate.runMillis;
+
+class BlinkCtrl : ProgState {
+
+  public:
+
+    BlinkCtrl() {
+      num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
+      reset();
+    }
+
+    void reset() {   // reset public and private vars
       state_mins = 0;
       state_ticks = 0;
     }
 
-    bool blink_x_times(void *) {
-
+    void set_led() {
       updateState();
-
-      if (runState == false) return true;
+      if (runState == false) return;
 
       if (state_ticks == 0) {
         state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
@@ -65,7 +80,6 @@ class ProgState {
       }
 
       if (state_ticks > 0) state_ticks--;
-      return true;
     }
 
   private:
@@ -82,45 +96,11 @@ class ProgState {
     }
 };
 
-int  ProgState::minsLeft = 0;
-bool ProgState::setState = false;
-bool ProgState::runState = false;
-unsigned long ProgState::runMillis = 0;
-
-ProgState pstate = ProgState();
-
-class Blinker : ProgState {
-
-  public:
-
-    void reset() {   // reset public and private vars
-      state_mins = 0;
-      state_ticks = 0;
-    }
-
-    bool blink_led() {
-      updateState();
-    }
-
-  private:
-    int state_mins;
-    int state_ticks;
-    int state_mins_ticks;
-    int num_mins_ticks;
-
-    void updateState() {
-      if (setState==true && runState==false && millis()>runMillis) {
-        setState = false;
-        runState = true;
-      }
-    }
-};
-
-Blinker blink = Blinker();
+BlinkCtrl blinker = BlinkCtrl();
 
 void resetAll() {
   pstate.reset();
-  blink.reset();
+  blinker.reset();
 }
 
 // --------------------------------------
@@ -226,11 +206,6 @@ bool handle_addButton(void *) {
   return true;
 }
 
-bool run_blink(void *) {
-  blink.blink_led();
-  return true;
-}
-
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
@@ -247,9 +222,7 @@ void setup() {
   pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
   pinMode(ADD_TIME_BTN, INPUT_PULLUP);
 
-  //timer.every(25, pstate.blink_x_times);
-  
-  timer.every(25, run_blink);
+  timer.every(25, [](void *)->bool{blinker.set_led();return true;});
   timer.every(30000, changeMins);
 
   timer.every(20, check_button, (void *)SEL_SPRNKLR_BTN);
