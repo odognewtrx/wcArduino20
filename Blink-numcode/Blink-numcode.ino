@@ -3,7 +3,6 @@
 */
 
 #include <arduino-timer.h>
-#include <ezButton.h>
 
 #define LED_0_PIN 2
 #define LED_1_PIN 3
@@ -13,140 +12,152 @@
 
 int minsLeft = 0;
 
-void toggle_sel_led() {
-  digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
-  digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
-}
-
-// --------------------------------------
-// Buttons
-//
-ezButton selBtn(SEL_SPRNKLR_BTN);
-ezButton addBtn(ADD_TIME_BTN);
-
-unsigned long selPressTime  = 0;
-unsigned long selRelTime = 1;
-unsigned long addPressTime  = 0;
-unsigned long addRelTime = 1;
-int selCount = 0;
-int addCount = 0;
-
-void loop_buttons() {
-
-  if (selBtn.isPressed()) {
-    Serial.println("sel Button pressed.");
-    selCount++;
-    selPressTime = millis();
-  }
-  if (addBtn.isPressed()) {
-    Serial.println("add Button pressed.");
-    addCount++;
-    addPressTime = millis();
-  }
-
-  if (selBtn.isReleased()) {
-    selCount = 0;
-    selRelTime = millis();
-  }
-  if (addBtn.isReleased()) {
-    addCount = 0;
-    addRelTime = millis();
-  }
-
-  
-  if      ((selPressTime > selRelTime) &&
-           (addPressTime < addRelTime) &&
-           (selCount > 0) &&
-           (selBtn.getStateRaw() == 0)) {
-            toggle_sel_led();
-            selCount++;
-           }
-  else if ((selPressTime < selRelTime) &&
-           (addPressTime > addRelTime) &&
-           (addCount > 0) &&
-           (addBtn.getStateRaw() == 0)) {
-            if (minsLeft < 10) minsLeft++;
-            addCount++;
-           }
-}
-
 // --------------------------------------
 // Timers
 //
 auto timer = timer_create_default(); // create a timer with default settings
 
-//bool toggle_led(void *) {
-bool toggle_led() {
-  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); // toggle the LED
-  return true; // keep timer active? true
-}
+// 25ms Ticks of LED state
+#define TICKS_MIN_H 6
+#define TICKS_MIN_L 12
+#define TICKS_PAUSE 36
 
+int state_mins = 0;
+int state_ticks = 0;
+int state_mins_ticks;
+const int num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
 
 bool blink_x_times(void *) {
-  int num = minsLeft;
-
-  if (1) {
-    Serial.print("blink_x_times: ");
-    Serial.println(num);
+  if (state_ticks == 0) {
+    state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
+    state_mins = minsLeft;
+    if (minsLeft > 0) state_mins_ticks = num_mins_ticks;
   }
 
-  for (int i=0; i<num; i++) {
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(150);
-    digitalWrite(LED_BUILTIN, LOW);
-    if (i < num-1) delay(275);
+  if (state_ticks > TICKS_PAUSE) {
+    if (state_mins > 0) {
+      if (state_mins_ticks == num_mins_ticks)   digitalWrite(LED_BUILTIN, HIGH);
+      else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(LED_BUILTIN, LOW);
+    }
+
+    if (state_mins_ticks == 0) {
+      if (state_mins > 0) state_mins--;
+      state_mins_ticks = num_mins_ticks;
+    } else state_mins_ticks--;
   }
 
-  delay(2000);
+  if (state_ticks > 0) state_ticks--;
   return true;
 }
 
 bool changeMins(void *) {
-  if (minsLeft < 10) minsLeft++;
-  else minsLeft = 0;
+  if (minsLeft > 0) minsLeft--;
+  return true;
 }
 
-bool loopPeriodicFuncs(void *) {
+// --------------------------------------
+// Buttons
+//
+size_t b_state_0[2];
+size_t b_state_1[2];
+size_t b_state_2[2];
 
-  selBtn.loop();
-  addBtn.loop();
-  loop_buttons();
+bool selState = false;
+bool selReleased = false;
+bool addState = false;
+bool addReleased = false;
+
+bool check_button(void *button) {
+
+  size_t but = (size_t) button;
+  int idx;
+  if (but == (size_t) SEL_SPRNKLR_BTN) idx = 0;
+  else idx = 1;
+
+  b_state_0[idx] = b_state_1[idx];
+  b_state_1[idx] = b_state_2[idx];
+  b_state_2[idx] = digitalRead(but);
+
+  if (b_state_0[idx]==LOW && b_state_1[idx]==LOW && b_state_1[idx]==LOW) {
+    if (idx == 0) {
+      if (selState==false) selState = true;
+    } else {
+      if (addState==false) addState = true;
+    }
+  }
+
+  if (b_state_0[idx]==HIGH && b_state_1[idx]==HIGH && b_state_1[idx]==HIGH) {
+    if (idx == 0) {
+      if (selState==true) selReleased = true;
+    } else {
+      if (addState==true) addReleased = true;
+    }
+  }
+
+  return true;
+}
+
+bool prevSelState = false;
+bool handle_selButton(void *) {
+
+  // Handle condition
+  if (selState==true && prevSelState==false && selReleased==false) {
+    digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
+    digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
+  }
+
+  // Reset condition
+  if (selState==true && selReleased==true) {
+    selState = false;
+    selReleased = false;
+  }
+
+  prevSelState = selState;
+  return true;
+}
+
+bool prevAddState = false;
+bool handle_addButton(void *) {
+
+  // Handle condition
+  if (addState==true && prevAddState==false && addReleased==false) {
+    if ( minsLeft < 10 ) minsLeft++;
+  }
+
+  // Reset condition
+  if (addState==true && addReleased==true) {
+    addState = false;
+    addReleased = false;
+  }
+
+  prevAddState = addState;
+  return true;
 }
 
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
 
-  selBtn.setDebounceTime(50);
-  addBtn.setDebounceTime(50);
-  
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_0_PIN, OUTPUT);
   pinMode(LED_1_PIN, OUTPUT);
   digitalWrite(LED_0_PIN, HIGH);
+  digitalWrite(LED_BUILTIN, LOW);
 
-  //timer.every(100, loopPeriodicFuncs);
+  pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
+  pinMode(ADD_TIME_BTN, INPUT_PULLUP);
 
-  // call the repeat_x_times function every 500 millis
-  timer.every(500, blink_x_times);
+  timer.every(25, blink_x_times);
+  timer.every(30000, changeMins);
 
-  timer.every(5000, changeMins);
+  timer.every(20, check_button, (void *)SEL_SPRNKLR_BTN);
+  timer.every(400, handle_selButton);
+
+  timer.every(20, check_button, (void *)ADD_TIME_BTN);
+  timer.every(400, handle_addButton);
 }
 
-unsigned long loopMillis = 0;
 void loop() {
-
-  if (millis() > loopMillis + 100 ) {
-    //Serial.println("Running Buttons");
-    selBtn.loop();
-    addBtn.loop();
-    //Serial.print("sel Button: ");
-    //Serial.println(selBtn.getStateRaw());
-    if (selBtn.isPressed()) {
-      Serial.println("sel Button pressed.");
-    }
-    loopMillis = millis();
-  }
   timer.tick(); // tick the timer
 }
