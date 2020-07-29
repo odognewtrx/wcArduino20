@@ -24,14 +24,14 @@ class ProgState {
     static bool runState;
     static unsigned long runMillis;
 
-    // Constructor
+    // Constructor: set private vars
     ProgState() {
       state_mins = 0;
       state_ticks = 0;
       num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
     }
 
-    void reset() {
+    void reset() {   // reset public and private vars
       minsLeft = 0;
       setState = false;
       runState = false;
@@ -80,66 +80,56 @@ class ProgState {
         runState = true;
       }
     }
+};
+
+int  ProgState::minsLeft = 0;
+bool ProgState::setState = false;
+bool ProgState::runState = false;
+unsigned long ProgState::runMillis = 0;
+
+ProgState pstate = ProgState();
+
+class Blinker : ProgState {
+
+  public:
+
+    void reset() {   // reset public and private vars
+      state_mins = 0;
+      state_ticks = 0;
+    }
+
+    bool blink_led() {
+      updateState();
+    }
+
+  private:
+    int state_mins;
+    int state_ticks;
+    int state_mins_ticks;
+    int num_mins_ticks;
+
+    void updateState() {
+      if (setState==true && runState==false && millis()>runMillis) {
+        setState = false;
+        runState = true;
+      }
+    }
+};
+
+Blinker blink = Blinker();
+
+void resetAll() {
+  pstate.reset();
+  blink.reset();
 }
-
-ProgState pstate;
-pstate.reset();
-
-int minsLeft = 0;
-bool setState = false;
-bool runState = false;
-unsigned long runMillis = 0;
 
 // --------------------------------------
 // Timers
 //
 auto timer = timer_create_default(); // create a timer with default settings
 
-int state_mins = 0;
-int state_ticks = 0;
-int state_mins_ticks;
-const int num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
-
-void resetProg() {
-  setState = false;
-  runState = false;
-  minsLeft = 0;
-  state_mins = 0;
-  state_ticks = 0;
-}
-
-bool blink_x_times(void *) {
-
-  if (setState==true && runState==false && millis()>runMillis) {
-    setState = false;
-    runState = true;
-  }
-  if (runState == false) return true;
-
-  if (state_ticks == 0) {
-    state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
-    state_mins = minsLeft;
-    if (minsLeft > 0) state_mins_ticks = num_mins_ticks;
-  }
-
-  if (state_ticks > TICKS_PAUSE) {
-    if (state_mins > 0) {
-      if (state_mins_ticks == num_mins_ticks)   digitalWrite(LED_BUILTIN, HIGH);
-      else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(LED_BUILTIN, LOW);
-    }
-
-    if (state_mins_ticks == 0) {
-      if (state_mins > 0) state_mins--;
-      state_mins_ticks = num_mins_ticks;
-    } else state_mins_ticks--;
-  }
-
-  if (state_ticks > 0) state_ticks--;
-  return true;
-}
-
 bool changeMins(void *) {
-  if (minsLeft > 0 && millis() > (runMillis + 10000) ) minsLeft--;
+  if (ProgState::minsLeft > 0 && millis() > (ProgState::runMillis + 10000) ) ProgState::minsLeft--;
   return true;
 }
 
@@ -190,7 +180,7 @@ bool handle_selButton(void *) {
 
   // Handle condition
   if (selState==true && prevSelState==false && selReleased==false) {
-    if (runState==false) {
+    if (ProgState::runState==false) {
       digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
       digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
     }
@@ -211,18 +201,18 @@ bool handle_addButton(void *) {
 
   // Handle condition
   if (addState==true && prevAddState==false && addReleased==false) {
-    if (setState == false && runState == false) {
-      setState = true;
-      runMillis = millis() + SET_PERIOD;
-    } else if (runState == true) {
-      resetProg();
+    if (ProgState::setState == false && ProgState::runState == false) {
+      ProgState::setState = true;
+      ProgState::runMillis = millis() + SET_PERIOD;
+    } else if (ProgState::runState == true) {
+      resetAll();
     }
 
-    if ( setState == true && minsLeft < 10 ) {
+    if ( ProgState::setState == true && ProgState::minsLeft < 10 ) {
       digitalWrite(LED_BUILTIN, HIGH);
       delay(75);
       digitalWrite(LED_BUILTIN, LOW);
-      minsLeft++;
+      ProgState::minsLeft++;
     }
   }
 
@@ -236,9 +226,16 @@ bool handle_addButton(void *) {
   return true;
 }
 
+bool run_blink(void *) {
+  blink.blink_led();
+  return true;
+}
+
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
+
+  resetAll();
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -250,7 +247,9 @@ void setup() {
   pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
   pinMode(ADD_TIME_BTN, INPUT_PULLUP);
 
-  timer.every(25, blink_x_times);
+  //timer.every(25, pstate.blink_x_times);
+  
+  timer.every(25, run_blink);
   timer.every(30000, changeMins);
 
   timer.every(20, check_button, (void *)SEL_SPRNKLR_BTN);
