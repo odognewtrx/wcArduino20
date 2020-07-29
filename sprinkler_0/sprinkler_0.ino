@@ -12,6 +12,79 @@
 
 #define SET_PERIOD 20000         // Allow 20 sec for setting runtime
 
+// 25ms Ticks of LED state
+#define TICKS_MIN_H 6
+#define TICKS_MIN_L 12
+#define TICKS_PAUSE 36
+
+class ProgState {
+  public:
+    static int minsLeft;
+    static bool setState;
+    static bool runState;
+    static unsigned long runMillis;
+
+    // Constructor
+    ProgState() {
+      state_mins = 0;
+      state_ticks = 0;
+      num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
+    }
+
+    void reset() {
+      minsLeft = 0;
+      setState = false;
+      runState = false;
+      runMillis = 0;
+      state_mins = 0;
+      state_ticks = 0;
+    }
+
+    bool blink_x_times(void *) {
+
+      updateState();
+
+      if (runState == false) return true;
+
+      if (state_ticks == 0) {
+        state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
+        state_mins = minsLeft;
+        if (minsLeft > 0) state_mins_ticks = num_mins_ticks;
+      }
+
+      if (state_ticks > TICKS_PAUSE) {
+        if (state_mins > 0) {
+          if (state_mins_ticks == num_mins_ticks)   digitalWrite(LED_BUILTIN, HIGH);
+          else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(LED_BUILTIN, LOW);
+        }
+
+        if (state_mins_ticks == 0) {
+          if (state_mins > 0) state_mins--;
+          state_mins_ticks = num_mins_ticks;
+        } else state_mins_ticks--;
+      }
+
+      if (state_ticks > 0) state_ticks--;
+      return true;
+    }
+
+  private:
+    int state_mins;
+    int state_ticks;
+    int state_mins_ticks;
+    int num_mins_ticks;
+
+    void updateState() {
+      if (setState==true && runState==false && millis()>runMillis) {
+        setState = false;
+        runState = true;
+      }
+    }
+}
+
+ProgState pstate;
+pstate.reset();
+
 int minsLeft = 0;
 bool setState = false;
 bool runState = false;
@@ -21,11 +94,6 @@ unsigned long runMillis = 0;
 // Timers
 //
 auto timer = timer_create_default(); // create a timer with default settings
-
-// 25ms Ticks of LED state
-#define TICKS_MIN_H 6
-#define TICKS_MIN_L 12
-#define TICKS_PAUSE 36
 
 int state_mins = 0;
 int state_ticks = 0;
