@@ -10,7 +10,12 @@
 #define SEL_SPRNKLR_BTN A3
 #define ADD_TIME_BTN    A4
 
+#define SET_PERIOD 20000         // Allow 20 sec for setting runtime
+
 int minsLeft = 0;
+bool setState = false;
+bool runState = false;
+unsigned long runMillis = 0;
 
 // --------------------------------------
 // Timers
@@ -28,6 +33,13 @@ int state_mins_ticks;
 const int num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
 
 bool blink_x_times(void *) {
+
+  if (setState==true && runState==false && millis()>runMillis) {
+    setState = false;
+    runState = true;
+  }
+  if (runState == false) return true;
+
   if (state_ticks == 0) {
     state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
     state_mins = minsLeft;
@@ -51,7 +63,7 @@ bool blink_x_times(void *) {
 }
 
 bool changeMins(void *) {
-  if (minsLeft > 0) minsLeft--;
+  if (minsLeft > 0 && millis() > (runMillis + 10000) ) minsLeft--;
   return true;
 }
 
@@ -102,8 +114,10 @@ bool handle_selButton(void *) {
 
   // Handle condition
   if (selState==true && prevSelState==false && selReleased==false) {
-    digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
-    digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
+    if (runState==false) {
+      digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
+      digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
+    }
   }
 
   // Reset condition
@@ -121,7 +135,17 @@ bool handle_addButton(void *) {
 
   // Handle condition
   if (addState==true && prevAddState==false && addReleased==false) {
-    if ( minsLeft < 10 ) minsLeft++;
+    if (setState == false && runState == false) {
+      setState = true;
+      runMillis = millis() + SET_PERIOD;
+    }
+
+    if ( setState == true && minsLeft < 10 ) {
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(75);
+      digitalWrite(LED_BUILTIN, LOW);
+      minsLeft++;
+    }
   }
 
   // Reset condition
