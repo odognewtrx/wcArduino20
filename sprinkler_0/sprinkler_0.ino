@@ -1,101 +1,197 @@
-#include "Arduino.h"
-#include <ezButton.h>
+/*
+  
+*/
 
-// -----------------------------------------------------------
-// Button management
+#include <arduino-timer.h>
+
+#define LED_0_PIN 2
+#define LED_1_PIN 3
+
+#define SEL_SPRNKLR_BTN A3
+#define ADD_TIME_BTN    A4
+
+#define SET_PERIOD 20000         // Allow 20 sec for setting runtime
+
+int minsLeft = 0;
+bool setState = false;
+bool runState = false;
+unsigned long runMillis = 0;
+
+// --------------------------------------
+// Timers
 //
-#define ADDMIN_BTN_PIN    2
-#define CANCEL_BTN_PIN    3
-#define SEL_SPRINKLER_PIN 4
-#define ENABLE_0_PIN      5
-#define ENABLE_1_PIN      6
-#define SHORT_PRESS_TIME  250  //250 milliseconds
+auto timer = timer_create_default(); // create a timer with default settings
 
-ezButton addMinBtn(ADDMIN_BTN_PIN);
-ezButton cancelBtn(CANCEL_BTN_PIN);
+// 25ms Ticks of LED state
+#define TICKS_MIN_H 6
+#define TICKS_MIN_L 12
+#define TICKS_PAUSE 36
 
-unsigned long pressedTime  = 0;
-unsigned long releasedTime = 0;
-unsigned long startTime = 0;
-unsigned long stopTime = 0;
+int state_mins = 0;
+int state_ticks = 0;
+int state_mins_ticks;
+const int num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
 
-void addOneMin() {
-  if (startTime == 0 ) {
-    startTime = millis();
-    stopTime = startTime;
+void resetProg() {
+  setState = false;
+  runState = false;
+  minsLeft = 0;
+  state_mins = 0;
+  state_ticks = 0;
+}
+
+bool blink_x_times(void *) {
+
+  if (setState==true && runState==false && millis()>runMillis) {
+    setState = false;
+    runState = true;
   }
-  stopTime += 60000;
+  if (runState == false) return true;
+
+  if (state_ticks == 0) {
+    state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
+    state_mins = minsLeft;
+    if (minsLeft > 0) state_mins_ticks = num_mins_ticks;
+  }
+
+  if (state_ticks > TICKS_PAUSE) {
+    if (state_mins > 0) {
+      if (state_mins_ticks == num_mins_ticks)   digitalWrite(LED_BUILTIN, HIGH);
+      else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(LED_BUILTIN, LOW);
+    }
+
+    if (state_mins_ticks == 0) {
+      if (state_mins > 0) state_mins--;
+      state_mins_ticks = num_mins_ticks;
+    } else state_mins_ticks--;
+  }
+
+  if (state_ticks > 0) state_ticks--;
+  return true;
 }
 
-void cancelRun() {
-  startTime = 0;
-  stopTime = 0;
+bool changeMins(void *) {
+  if (minsLeft > 0 && millis() > (runMillis + 10000) ) minsLeft--;
+  return true;
 }
 
-void button_loop() {
+// --------------------------------------
+// Buttons
+//
+size_t b_state_0[2];
+size_t b_state_1[2];
+size_t b_state_2[2];
 
-  if(addMinBtn.isPressed())
-    pressedTime = millis();
+bool selState = false;
+bool selReleased = false;
+bool addState = false;
+bool addReleased = false;
 
-  if(cancelBtn.isPressed())
-    pressedTime = millis();
+bool check_button(void *button) {
 
-  if(addMinBtn.isReleased()) {
+  size_t but = (size_t) button;
+  int idx;
+  if (but == (size_t) SEL_SPRNKLR_BTN) idx = 0;
+  else idx = 1;
 
-    releasedTime = millis();
-    long pressDuration = releasedTime - pressedTime;
+  b_state_0[idx] = b_state_1[idx];
+  b_state_1[idx] = b_state_2[idx];
+  b_state_2[idx] = digitalRead(but);
 
-    if( pressDuration < SHORT_PRESS_TIME ) {
-      Serial.println("Adding 1 Minute...");
-      addOneMin();
+  if (b_state_0[idx]==LOW && b_state_1[idx]==LOW && b_state_1[idx]==LOW) {
+    if (idx == 0) {
+      if (selState==false) selState = true;
+    } else {
+      if (addState==false) addState = true;
     }
   }
 
-  if(cancelBtn.isReleased()) {
-    releasedTime = millis();
-    long pressDuration = releasedTime - pressedTime;
-
-    if( pressDuration < SHORT_PRESS_TIME ) {
-      Serial.println("Cancelling sprinkler...");
-      cancelRun();
+  if (b_state_0[idx]==HIGH && b_state_1[idx]==HIGH && b_state_1[idx]==HIGH) {
+    if (idx == 0) {
+      if (selState==true) selReleased = true;
+    } else {
+      if (addState==true) addReleased = true;
     }
   }
+
+  return true;
 }
 
-// -----------------------------------------------------------------------------
-// SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP   SETUP
-// -----------------------------------------------------------------------------
+bool prevSelState = false;
+bool handle_selButton(void *) {
+
+  // Handle condition
+  if (selState==true && prevSelState==false && selReleased==false) {
+    if (runState==false) {
+      digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
+      digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
+    }
+  }
+
+  // Reset condition
+  if (selState==true && selReleased==true) {
+    selState = false;
+    selReleased = false;
+  }
+
+  prevSelState = selState;
+  return true;
+}
+
+bool prevAddState = false;
+bool handle_addButton(void *) {
+
+  // Handle condition
+  if (addState==true && prevAddState==false && addReleased==false) {
+    if (setState == false && runState == false) {
+      setState = true;
+      runMillis = millis() + SET_PERIOD;
+    } else if (runState == true) {
+      resetProg();
+    }
+
+    if ( setState == true && minsLeft < 10 ) {
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(75);
+      digitalWrite(LED_BUILTIN, LOW);
+      minsLeft++;
+    }
+  }
+
+  // Reset condition
+  if (addState==true && addReleased==true) {
+    addState = false;
+    addReleased = false;
+  }
+
+  prevAddState = addState;
+  return true;
+}
+
+// the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
 
-  pinMode(ENABLE_0_PIN, OUTPUT);
-  digitalWrite(ENABLE_0_PIN, LOW);
-  pinMode(ENABLE_1_PIN, OUTPUT);
-  digitalWrite(ENABLE_1_PIN, LOW);
+  // initialize digital pin LED_BUILTIN as an output.
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_0_PIN, OUTPUT);
+  pinMode(LED_1_PIN, OUTPUT);
+  digitalWrite(LED_0_PIN, HIGH);
+  digitalWrite(LED_BUILTIN, LOW);
 
-  addMinBtn.setDebounceTime(50);
-  cancelBtn.setDebounceTime(50);
+  pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
+  pinMode(ADD_TIME_BTN, INPUT_PULLUP);
+
+  timer.every(25, blink_x_times);
+  timer.every(30000, changeMins);
+
+  timer.every(20, check_button, (void *)SEL_SPRNKLR_BTN);
+  timer.every(400, handle_selButton);
+
+  timer.every(20, check_button, (void *)ADD_TIME_BTN);
+  timer.every(400, handle_addButton);
 }
 
-// -----------------------------------------------------------------------------
-// LOOP    LOOP    LOOP    LOOP    LOOP    LOOP    LOOP    LOOP    LOOP 
-// -----------------------------------------------------------------------------
 void loop() {
-  addMinBtn.loop();
-  cancelBtn.loop();
-
-  button_loop();        // Check for button operations
-
-  if (stopTime > startTime) {
-    if (digitalRead(SEL_SPRINKLER_PIN)) {
-      digitalWrite(ENABLE_1_PIN, HIGH);
-    } else {
-      digitalWrite(ENABLE_0_PIN, HIGH);
-    }
-  } else {
-    digitalWrite(ENABLE_0_PIN, LOW);
-    digitalWrite(ENABLE_1_PIN, LOW);
-  }
-
-  delay(100);
+  timer.tick(); // tick the timer
 }
