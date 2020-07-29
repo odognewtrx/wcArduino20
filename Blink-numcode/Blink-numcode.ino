@@ -32,6 +32,14 @@ int state_ticks = 0;
 int state_mins_ticks;
 const int num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
 
+void resetProg() {
+  setState = false;
+  runState = false;
+  minsLeft = 0;
+  state_mins = 0;
+  state_ticks = 0;
+}
+
 bool blink_x_times(void *) {
 
   if (setState==true && runState==false && millis()>runMillis) {
@@ -138,6 +146,8 @@ bool handle_addButton(void *) {
     if (setState == false && runState == false) {
       setState = true;
       runMillis = millis() + SET_PERIOD;
+    } else if (runState == true) {
+      resetProg();
     }
 
     if ( setState == true && minsLeft < 10 ) {
