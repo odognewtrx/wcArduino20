@@ -108,15 +108,25 @@ class AnyButton {
   uint8_t button;
 
   public:
-    AnyButton(uint8_t b) {
-      button = b;
+
+    static uint8_t buttons[2];
+    static int b_idx;
+
+    AnyButton() {
       ps = ProgState();
       butState = false;
       butReleased = false;
       prevButState = false;
     }
 
-    void setup() { pinMode(button, INPUT_PULLUP); }
+    AnyButton(uint8_t b) {
+      button = b;
+      buttons[b_idx++] = b;  // register button
+    }
+
+    void setup() {
+      for (int i=0;i<b_idx;i++) { pinMode(buttons[i], INPUT_PULLUP); }
+    }
 
     bool checkButton() {  // called from timer function lambda wrapper
       b_state_0 = b_state_1;
@@ -149,6 +159,7 @@ class AnyButton {
     ProgState ps;
 
   private:
+
     bool butState;
     bool prevButState;
     bool butReleased;
@@ -157,6 +168,9 @@ class AnyButton {
     uint8_t b_state_2;
 
 };
+
+int AnyButton::b_idx = 0;
+uint8_t AnyButton::buttons[] = {99, 99};
 
 class selButton : public AnyButton {
   public:
@@ -203,6 +217,8 @@ ProgState pstate = ProgState();
 BlinkCtrl blinker = BlinkCtrl();
 selButton selectBut = selButton();
 addButton addTimeBut = addButton(blinker);
+AnyButton allButtons = AnyButton();
+
 auto timer = timer_create_default(); // create a timer with default settings
 
 bool changeMins(void *) {
@@ -224,8 +240,7 @@ void setup() {
   digitalWrite(LED_0_PIN, HIGH);
   digitalWrite(LED_BUILTIN, LOW);
 
-  selectBut.setup();
-  addTimeBut.setup();
+  allButtons.setup();
 
   timer.every(25, [](void *)->bool{return blinker.set_led();});
   timer.every(30000, changeMins);
