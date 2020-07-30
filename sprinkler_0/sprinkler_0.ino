@@ -104,11 +104,6 @@ class BlinkCtrl {
 
 BlinkCtrl blinker = BlinkCtrl();
 
-void resetAll() {
-  pstate.reset();
-  blinker.reset();
-}
-
 // --------------------------------------
 // Timers
 //
@@ -141,12 +136,12 @@ class AnyButton {
       if (butState==true  && b_state_0==HIGH && b_state_1==HIGH && b_state_2==HIGH) butReleased = true;
     }
 
-    virtual void call_handler() {}
+    virtual void handleButAction() {}
 
     void handleButton() {
 
       // Handle condition
-      if (butState==true && prevButState==false && butReleased==false) call_handler();
+      if (butState==true && prevButState==false && butReleased==false) handleButAction();
 
       // Reset condition
       if (butState==true && butReleased==true) {
@@ -175,7 +170,7 @@ class selButton : public AnyButton {
     selButton():AnyButton(SEL_SPRNKLR_BTN) {}
 
   private:
-    void call_handler() {
+    void handleButAction() {
       if (ps.runState == false) {
         digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
         digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
@@ -187,16 +182,19 @@ selButton selectBut = selButton();
 
 class addButton : public AnyButton {
   public:
-    addButton():AnyButton(ADD_TIME_BTN) {}
+    addButton(BlinkCtrl b):AnyButton(ADD_TIME_BTN) { b_obj = b; }
 
   private:
-    void call_handler() {
+    BlinkCtrl b_obj;
+
+    void handleButAction() {
 
       if (ps.setState == false && ps.runState == false) {
         ps.setState = true;
         ps.runMillis = millis() + SET_PERIOD;
       } else if (ps.runState == true) {
-        resetAll();
+        ps.reset();
+        b_obj.reset();
       }
 
       if ( ps.setState == true && ps.minsLeft < 10 ) {
@@ -208,13 +206,14 @@ class addButton : public AnyButton {
     }
 };
 
-addButton addTimeBut = addButton();
+addButton addTimeBut = addButton(blinker);
 
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
 
-  resetAll();
+  pstate.reset();
+  blinker.reset();
   
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
