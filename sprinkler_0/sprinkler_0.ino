@@ -67,10 +67,10 @@ class BlinkCtrl {
       state_ticks = 0;
     }
 
-    void set_led() {
+    bool set_led() {   // called from timer function lambda wrapper
 
       ps.detect_runState();
-      if (ps.runState == false) return;
+      if (ps.runState == false) return true;
 
       if (state_ticks == 0) {
         state_ticks = ps.minsLeft*(num_mins_ticks) + TICKS_PAUSE;
@@ -91,6 +91,7 @@ class BlinkCtrl {
       }
 
       if (state_ticks > 0) state_ticks--;
+      return true; // continue timer
     }
 
   private:
@@ -127,18 +128,19 @@ class AnyButton {
       prevButState = false;
     }
 
-    void checkButton() {
+    bool checkButton() {  // called from timer function lambda wrapper
       b_state_0 = b_state_1;
       b_state_1 = b_state_2;
       b_state_2 = digitalRead(button);
 
       if (butState==false && b_state_0==LOW  && b_state_1==LOW  && b_state_2==LOW)  butState = true;
       if (butState==true  && b_state_0==HIGH && b_state_1==HIGH && b_state_2==HIGH) butReleased = true;
+      return true; // continue timer
     }
 
     virtual void handleButAction() {}
 
-    void handleButton() {
+    bool handleButton() {  // called from timer function lambda wrapper
 
       // Handle condition
       if (butState==true && prevButState==false && butReleased==false) handleButAction();
@@ -150,6 +152,7 @@ class AnyButton {
       }
 
       prevButState = butState;
+      return true; // continue timer
     }
 
   protected:
@@ -225,14 +228,14 @@ void setup() {
   pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
   pinMode(ADD_TIME_BTN, INPUT_PULLUP);
 
-  timer.every(25, [](void *)->bool{blinker.set_led();return true;});
+  timer.every(25, [](void *)->bool{return blinker.set_led();});
   timer.every(30000, changeMins);
 
-  timer.every(20,  [](void *)->bool{selectBut.checkButton();return true;});
-  timer.every(400, [](void *)->bool{selectBut.handleButton();return true;});
+  timer.every(20,  [](void *)->bool{return selectBut.checkButton();});
+  timer.every(400, [](void *)->bool{return selectBut.handleButton();});
 
-  timer.every(20,  [](void *)->bool{addTimeBut.checkButton();return true;});
-  timer.every(400, [](void *)->bool{addTimeBut.handleButton();return true;});
+  timer.every(20,  [](void *)->bool{return addTimeBut.checkButton();});
+  timer.every(400, [](void *)->bool{return addTimeBut.handleButton();});
 }
 
 void loop() {
