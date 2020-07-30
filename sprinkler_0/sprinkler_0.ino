@@ -35,7 +35,7 @@ class ProgState {
       runState = runState_init;
       runMillis = runMillis_init;
     }
-
+    
     // Blinker control will execute this at start of it's cycle
     void detect_runState() {
       if (setState==true && runState==false && millis()>runMillis) {
@@ -45,7 +45,6 @@ class ProgState {
     }
 };
 
-ProgState pstate = ProgState();
 // need to set these before use in child class
 int  ProgState::minsLeft = ProgState::minsLeft_init;
 bool ProgState::setState = ProgState::setState_init;
@@ -103,17 +102,6 @@ class BlinkCtrl {
 
 };
 
-BlinkCtrl blinker = BlinkCtrl();
-
-// --------------------------------------
-// Timers
-//
-auto timer = timer_create_default(); // create a timer with default settings
-
-bool changeMins(void *) {
-  if (pstate.minsLeft > 0 && millis() > (pstate.runMillis + 10000) ) pstate.minsLeft--;
-  return true;
-}
 
 class AnyButton {
 
@@ -127,6 +115,8 @@ class AnyButton {
       butReleased = false;
       prevButState = false;
     }
+
+    void setup() { pinMode(button, INPUT_PULLUP); }
 
     bool checkButton() {  // called from timer function lambda wrapper
       b_state_0 = b_state_1;
@@ -181,8 +171,6 @@ class selButton : public AnyButton {
     }
 };
 
-selButton selectBut = selButton();
-
 class addButton : public AnyButton {
   public:
     addButton(BlinkCtrl b):AnyButton(ADD_TIME_BTN) { b_obj = b; }
@@ -209,7 +197,18 @@ class addButton : public AnyButton {
     }
 };
 
+//------------------------------------------------------------
+// Create globally scoped objects
+ProgState pstate = ProgState();
+BlinkCtrl blinker = BlinkCtrl();
+selButton selectBut = selButton();
 addButton addTimeBut = addButton(blinker);
+auto timer = timer_create_default(); // create a timer with default settings
+
+bool changeMins(void *) {
+  if (pstate.minsLeft > 0 && millis() > (pstate.runMillis + 10000) ) pstate.minsLeft--;
+  return true;
+}
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -225,8 +224,8 @@ void setup() {
   digitalWrite(LED_0_PIN, HIGH);
   digitalWrite(LED_BUILTIN, LOW);
 
-  pinMode(SEL_SPRNKLR_BTN, INPUT_PULLUP);
-  pinMode(ADD_TIME_BTN, INPUT_PULLUP);
+  selectBut.setup();
+  addTimeBut.setup();
 
   timer.every(25, [](void *)->bool{return blinker.set_led();});
   timer.every(30000, changeMins);
