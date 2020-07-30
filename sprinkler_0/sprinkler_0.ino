@@ -23,32 +23,42 @@ class ProgState {
     static bool setState;
     static bool runState;
     static unsigned long runMillis;
-
-    ProgState() {
-      reset();
+  
+    static const int minsLeft_init = 0;
+    static const bool setState_init = false;
+    static const bool runState_init = false;
+    static const unsigned long runMillis_init = 0;
+        
+    void reset() {
+      minsLeft = minsLeft_init;
+      setState = setState_init;
+      runState = runState_init;
+      runMillis = runMillis_init;
     }
 
-    void reset() {
-      minsLeft = 0;
-      setState = false;
-      runState = false;
-      runMillis = 0;
+    // Blinker control will execute this at start of it's cycle
+    void detect_runState() {
+      if (setState==true && runState==false && millis()>runMillis) {
+        setState = false;
+        runState = true;
+      }
     }
 };
 
 ProgState pstate = ProgState();
 // need to set these before use in child class
-int  ProgState::minsLeft = pstate.minsLeft;
-bool ProgState::setState = pstate.setState;
-bool ProgState::runState = pstate.runState;
-unsigned long ProgState::runMillis = pstate.runMillis;
+int  ProgState::minsLeft = ProgState::minsLeft_init;
+bool ProgState::setState = ProgState::setState_init;
+bool ProgState::runState = ProgState::runState_init;
+unsigned long ProgState::runMillis = ProgState::runMillis_init;
 
-class BlinkCtrl : ProgState {
+class BlinkCtrl {
 
   public:
 
     BlinkCtrl() {
       num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
+      ps = ProgState();
       reset();
     }
 
@@ -58,13 +68,14 @@ class BlinkCtrl : ProgState {
     }
 
     void set_led() {
-      updateState();
-      if (runState == false) return;
+
+      ps.detect_runState();
+      if (ps.runState == false) return;
 
       if (state_ticks == 0) {
-        state_ticks = minsLeft*(num_mins_ticks) + TICKS_PAUSE;
-        state_mins = minsLeft;
-        if (minsLeft > 0) state_mins_ticks = num_mins_ticks;
+        state_ticks = ps.minsLeft*(num_mins_ticks) + TICKS_PAUSE;
+        state_mins = ps.minsLeft;
+        if (ps.minsLeft > 0) state_mins_ticks = num_mins_ticks;
       }
 
       if (state_ticks > TICKS_PAUSE) {
@@ -83,17 +94,12 @@ class BlinkCtrl : ProgState {
     }
 
   private:
+    ProgState ps;
     int state_mins;
     int state_ticks;
     int state_mins_ticks;
     int num_mins_ticks;
 
-    void updateState() {
-      if (setState==true && runState==false && millis()>runMillis) {
-        setState = false;
-        runState = true;
-      }
-    }
 };
 
 BlinkCtrl blinker = BlinkCtrl();
@@ -109,109 +115,107 @@ void resetAll() {
 auto timer = timer_create_default(); // create a timer with default settings
 
 bool changeMins(void *) {
-  if (ProgState::minsLeft > 0 && millis() > (ProgState::runMillis + 10000) ) ProgState::minsLeft--;
+  if (pstate.minsLeft > 0 && millis() > (pstate.runMillis + 10000) ) pstate.minsLeft--;
   return true;
 }
 
-// --------------------------------------
-// Buttons
-//
-size_t b_state_0[2];
-size_t b_state_1[2];
-size_t b_state_2[2];
+class AnyButton {
 
-bool selState = false;
-bool selReleased = false;
-bool addState = false;
-bool addReleased = false;
+  uint8_t button;
 
-bool check_button(void *button) {
-
-  size_t but = (size_t) button;
-  int idx;
-  if (but == (size_t) SEL_SPRNKLR_BTN) idx = 0;
-  else idx = 1;
-
-  b_state_0[idx] = b_state_1[idx];
-  b_state_1[idx] = b_state_2[idx];
-  b_state_2[idx] = digitalRead(but);
-
-  if (b_state_0[idx]==LOW && b_state_1[idx]==LOW && b_state_1[idx]==LOW) {
-    if (idx == 0) {
-      if (selState==false) selState = true;
-    } else {
-      if (addState==false) addState = true;
-    }
-  }
-
-  if (b_state_0[idx]==HIGH && b_state_1[idx]==HIGH && b_state_1[idx]==HIGH) {
-    if (idx == 0) {
-      if (selState==true) selReleased = true;
-    } else {
-      if (addState==true) addReleased = true;
-    }
-  }
-
-  return true;
-}
-
-bool prevSelState = false;
-bool handle_selButton(void *) {
-
-  // Handle condition
-  if (selState==true && prevSelState==false && selReleased==false) {
-    if (ProgState::runState==false) {
-      digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
-      digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
-    }
-  }
-
-  // Reset condition
-  if (selState==true && selReleased==true) {
-    selState = false;
-    selReleased = false;
-  }
-
-  prevSelState = selState;
-  return true;
-}
-
-bool prevAddState = false;
-bool handle_addButton(void *) {
-
-  // Handle condition
-  if (addState==true && prevAddState==false && addReleased==false) {
-    if (ProgState::setState == false && ProgState::runState == false) {
-      ProgState::setState = true;
-      ProgState::runMillis = millis() + SET_PERIOD;
-    } else if (ProgState::runState == true) {
-      resetAll();
+  public:
+    AnyButton(uint8_t b) {
+      button = b;
+      ps = ProgState();
+      butState = false;
+      butReleased = false;
+      prevButState = false;
     }
 
-    if ( ProgState::setState == true && ProgState::minsLeft < 10 ) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      delay(75);
-      digitalWrite(LED_BUILTIN, LOW);
-      ProgState::minsLeft++;
+    void checkButton() {
+      b_state_0 = b_state_1;
+      b_state_1 = b_state_2;
+      b_state_2 = digitalRead(button);
+
+      if (butState==false && b_state_0==LOW  && b_state_1==LOW  && b_state_2==LOW)  butState = true;
+      if (butState==true  && b_state_0==HIGH && b_state_1==HIGH && b_state_2==HIGH) butReleased = true;
     }
-  }
 
-  // Reset condition
-  if (addState==true && addReleased==true) {
-    addState = false;
-    addReleased = false;
-  }
+    virtual void call_handler() {}
 
-  prevAddState = addState;
-  return true;
-}
+    void handleButton() {
+
+      // Handle condition
+      if (butState==true && prevButState==false && butReleased==false) call_handler();
+
+      // Reset condition
+      if (butState==true && butReleased==true) {
+        butState = false;
+        butReleased = false;
+      }
+
+      prevButState = butState;
+    }
+
+  protected:
+    ProgState ps;
+
+  private:
+    bool butState;
+    bool prevButState;
+    bool butReleased;
+    uint8_t b_state_0;
+    uint8_t b_state_1;
+    uint8_t b_state_2;
+
+};
+
+class selButton : public AnyButton {
+  public:
+    selButton():AnyButton(SEL_SPRNKLR_BTN) {}
+
+  private:
+    void call_handler() {
+      if (ps.runState == false) {
+        digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
+        digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
+      }
+    }
+};
+
+selButton selectBut = selButton();
+
+class addButton : public AnyButton {
+  public:
+    addButton():AnyButton(ADD_TIME_BTN) {}
+
+  private:
+    void call_handler() {
+
+      if (ps.setState == false && ps.runState == false) {
+        ps.setState = true;
+        ps.runMillis = millis() + SET_PERIOD;
+      } else if (ps.runState == true) {
+        resetAll();
+      }
+
+      if ( ps.setState == true && ps.minsLeft < 10 ) {
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(75);
+        digitalWrite(LED_BUILTIN, LOW);
+        ps.minsLeft++;
+      }      
+    }
+};
+
+addButton addTimeBut = addButton();
 
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
 
   resetAll();
-
+  
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_0_PIN, OUTPUT);
@@ -225,11 +229,11 @@ void setup() {
   timer.every(25, [](void *)->bool{blinker.set_led();return true;});
   timer.every(30000, changeMins);
 
-  timer.every(20, check_button, (void *)SEL_SPRNKLR_BTN);
-  timer.every(400, handle_selButton);
+  timer.every(20,  [](void *)->bool{selectBut.checkButton();return true;});
+  timer.every(400, [](void *)->bool{selectBut.handleButton();return true;});
 
-  timer.every(20, check_button, (void *)ADD_TIME_BTN);
-  timer.every(400, handle_addButton);
+  timer.every(20,  [](void *)->bool{addTimeBut.checkButton();return true;});
+  timer.every(400, [](void *)->bool{addTimeBut.handleButton();return true;});
 }
 
 void loop() {
