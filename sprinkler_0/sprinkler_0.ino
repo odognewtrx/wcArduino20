@@ -66,10 +66,16 @@ class BlinkCtrl {
       state_ticks = 0;
     }
 
-    bool set_led() {   // called from timer function lambda wrapper
+    bool setProgress() {   // called from timer function lambda wrapper
 
       ps.detect_runState();
       if (ps.runState == false) return true;
+
+      if (ps.runState && ps.minsLeft==0 ) {
+        ps.runState = false;
+        Serial.println("Turn off sprinklers");
+        return true;
+      }
 
       if (state_ticks == 0) {
         state_ticks = ps.minsLeft*(num_mins_ticks) + TICKS_PAUSE;
@@ -112,8 +118,8 @@ class AnyButton {
     static uint8_t buttons[2];
     static int b_idx;
 
-    AnyButton() {
-      ps = ProgState();
+    AnyButton(ProgState p) {
+      ps = p;
       butState = false;
       butReleased = false;
       prevButState = false;
@@ -166,15 +172,15 @@ class AnyButton {
     uint8_t b_state_0;
     uint8_t b_state_1;
     uint8_t b_state_2;
-
-};
+    
+  };
 
 int AnyButton::b_idx = 0;
 uint8_t AnyButton::buttons[] = {99, 99};
 
 class selButton : public AnyButton {
   public:
-    selButton():AnyButton(SEL_SPRNKLR_BTN) {}
+    selButton(uint8_t but):AnyButton(but) {}
 
   private:
     void handleButAction() {
@@ -187,7 +193,7 @@ class selButton : public AnyButton {
 
 class addButton : public AnyButton {
   public:
-    addButton(BlinkCtrl b):AnyButton(ADD_TIME_BTN) { b_obj = b; }
+    addButton(BlinkCtrl b, uint8_t but):AnyButton(but) { b_obj = b; }
 
   private:
     BlinkCtrl b_obj;
@@ -197,7 +203,9 @@ class addButton : public AnyButton {
       if (ps.setState == false && ps.runState == false) {
         ps.setState = true;
         ps.runMillis = millis() + SET_PERIOD;
-      } else if (ps.runState == true) {
+        Serial.println("got here start Set");
+      } else
+      if (ps.runState == true) {
         ps.reset();
         b_obj.reset();
       }
@@ -211,20 +219,66 @@ class addButton : public AnyButton {
     }
 };
 
+class CountDown {
+
+  public:
+    CountDown(ProgState p, uint8_t L0, uint8_t L1) {
+      ps = p;
+      led_0 = L0;
+      led_1 = L1;
+    }
+
+    bool checkTime() {
+
+      if (setState_prev && !ps.setState && ps.runState) {
+        // transition from setState to runState
+        endTime = millis() + 60000*ps.minsLeft;
+
+        // Turn on sprinkler corresponding to selected LED
+        if      (digitalRead(led_0)) { Serial.println("Turn on sprinkler 0"); }
+        else if (digitalRead(led_1)) { Serial.println("Turn on sprinkler 1"); }
+        Serial.print("minsLeft: ");
+        Serial.println(ps.minsLeft);
+
+      } else if (ps.runState && ps.minsLeft>0 ) {
+        // in runState
+        unsigned long currTime = millis();
+        unsigned long nextMin = endTime - 60000*(ps.minsLeft-1);
+
+        if (currTime >= endTime) {
+          Serial.println("minsLeft and runState set to 0");
+          ps.minsLeft = 0;
+          ps.runState = 0;
+        }
+        else if ( currTime > nextMin ) {
+          ps.minsLeft--;
+          Serial.print("New minsLeft: ");
+          Serial.println(ps.minsLeft);
+        }
+      }
+
+      setState_prev = ps.setState;
+      return true;
+    }
+
+  private:
+    ProgState ps;
+    uint8_t led_0;
+    uint8_t led_1;
+    unsigned long endTime;
+    bool setState_prev;
+};
+
 //------------------------------------------------------------
 // Create globally scoped objects
 ProgState pstate = ProgState();
 BlinkCtrl blinker = BlinkCtrl();
-selButton selectBut = selButton();
-addButton addTimeBut = addButton(blinker);
-AnyButton allButtons = AnyButton();
+selButton selectBut = selButton(SEL_SPRNKLR_BTN);
+addButton addTimeBut = addButton(blinker, ADD_TIME_BTN);
+AnyButton allButtons = AnyButton(pstate);
+CountDown countDwnTimer = CountDown(pstate, LED_0_PIN, LED_1_PIN);
 
 auto timer = timer_create_default(); // create a timer with default settings
-
-bool changeMins(void *) {
-  if (pstate.minsLeft > 0 && millis() > (pstate.runMillis + 10000) ) pstate.minsLeft--;
-  return true;
-}
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -242,14 +296,15 @@ void setup() {
 
   allButtons.setup();
 
-  timer.every(25, [](void *)->bool{return blinker.set_led();});
-  timer.every(30000, changeMins);
+  timer.every(25, [](void *)->bool{return blinker.setProgress();});
 
   timer.every(20,  [](void *)->bool{return selectBut.checkButton();});
   timer.every(400, [](void *)->bool{return selectBut.handleButton();});
 
   timer.every(20,  [](void *)->bool{return addTimeBut.checkButton();});
   timer.every(400, [](void *)->bool{return addTimeBut.handleButton();});
+
+  timer.every(1000, [](void *)->bool{return countDwnTimer.checkTime();});
 }
 
 void loop() {
