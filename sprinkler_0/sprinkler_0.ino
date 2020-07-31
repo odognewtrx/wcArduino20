@@ -64,13 +64,17 @@ class BlinkCtrl {
       reset();
     }
 
-    void reset() {   // reset public and private vars
-      state_mins = 0;
-      state_ticks = 0;
-      Serial.print("Turn off sprinklers  ");
+    void serialPrint() {
+      Serial.print("Turn off sprinkler pins: ");
       Serial.print(spr_0);
       Serial.print("  ");
       Serial.println(spr_1);
+    }
+
+    void reset() {   // reset public and private vars
+      serialPrint();
+      state_mins = 0;
+      state_ticks = 0;
       digitalWrite(spr_0, LOW);
       digitalWrite(spr_1, LOW);
     }
@@ -81,11 +85,8 @@ class BlinkCtrl {
       if (ps->runState == false) return true;
 
       if (ps->runState && ps->minsLeft==0 ) {
+        serialPrint();
         ps->runState = false;
-        Serial.print("Turn off sprinklers  ");
-        Serial.print(spr_0);
-        Serial.print("  ");
-        Serial.println(spr_1);
         digitalWrite(spr_0, LOW);
         digitalWrite(spr_1, LOW);
         return true;
