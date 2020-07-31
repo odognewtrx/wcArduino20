@@ -22,22 +22,22 @@
 
 class ProgState {
   public:
-    static int minsLeft;
-    static bool setState;
-    static bool runState;
-    static unsigned long runMillis;
+
+    ProgState() { setup(); }
+
+    int minsLeft;
+    bool setState;
+    bool runState;
+    unsigned long runMillis;
   
-    static const int minsLeft_init = 0;
-    static const bool setState_init = false;
-    static const bool runState_init = false;
-    static const unsigned long runMillis_init = 0;
-        
-    void reset() {
-      minsLeft = minsLeft_init;
-      setState = setState_init;
-      runState = runState_init;
-      runMillis = runMillis_init;
+    void setup() {
+      minsLeft = 0;
+      setState = false;
+      runState = false;
+      runMillis = 0;
     }
+
+    void reset() { setup(); }
     
     // Blinker control will execute this at start of it's cycle
     void detect_runState() {
@@ -47,12 +47,6 @@ class ProgState {
       }
     }
 };
-
-// need to set these before use in child class
-int  ProgState::minsLeft = ProgState::minsLeft_init;
-bool ProgState::setState = ProgState::setState_init;
-bool ProgState::runState = ProgState::runState_init;
-unsigned long ProgState::runMillis = ProgState::runMillis_init;
 
 class BlinkCtrl {
 
@@ -314,8 +308,6 @@ auto timer = timer_create_default(); // create a timer with default settings
 void setup() {
   Serial.begin(9600);
 
-  pstate.reset();
-  
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_0_PIN, OUTPUT);
@@ -328,6 +320,7 @@ void setup() {
   pinMode(SPRINKLER_1_PIN, OUTPUT);
   digitalWrite(SPRINKLER_1_PIN, LOW);
   
+  pstate.setup();
   blinker.setup(&pstate);
   selectBut.setup(&pstate);
   addTimeBut.setup(&pstate, &blinker);   
