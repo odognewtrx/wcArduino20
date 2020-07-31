@@ -7,6 +7,9 @@
 #define LED_0_PIN 2
 #define LED_1_PIN 3
 
+#define SPRINKLER_0_PIN 6
+#define SPRINKLER_1_PIN 7
+
 #define SEL_SPRNKLR_BTN A3
 #define ADD_TIME_BTN    A4
 
@@ -55,15 +58,23 @@ class BlinkCtrl {
 
   public:
 
-    BlinkCtrl() {
+    BlinkCtrl(uint8_t L, uint8_t S0, uint8_t S1) {
       num_mins_ticks = TICKS_MIN_H + TICKS_MIN_L;
       ps = ProgState();
-      reset();
+      led = L;
+      spr_0 = S0;
+      spr_1 = S1;
     }
 
     void reset() {   // reset public and private vars
       state_mins = 0;
       state_ticks = 0;
+      Serial.print("Turn off sprinklers  ");
+      Serial.print(spr_0);
+      Serial.print("  ");
+      Serial.println(spr_1);
+      digitalWrite(spr_0, LOW);
+      digitalWrite(spr_1, LOW);
     }
 
     bool setProgress() {   // called from timer function lambda wrapper
@@ -73,7 +84,12 @@ class BlinkCtrl {
 
       if (ps.runState && ps.minsLeft==0 ) {
         ps.runState = false;
-        Serial.println("Turn off sprinklers");
+        Serial.print("Turn off sprinklers  ");
+        Serial.print(spr_0);
+        Serial.print("  ");
+        Serial.println(spr_1);
+        digitalWrite(spr_0, LOW);
+        digitalWrite(spr_1, LOW);
         return true;
       }
 
@@ -85,8 +101,8 @@ class BlinkCtrl {
 
       if (state_ticks > TICKS_PAUSE) {
         if (state_mins > 0) {
-          if (state_mins_ticks == num_mins_ticks)   digitalWrite(LED_BUILTIN, HIGH);
-          else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(LED_BUILTIN, LOW);
+          if (state_mins_ticks == num_mins_ticks)   digitalWrite(led, HIGH);
+          else if (state_mins_ticks == TICKS_MIN_L) digitalWrite(led, LOW);
         }
 
         if (state_mins_ticks == 0) {
@@ -101,13 +117,15 @@ class BlinkCtrl {
 
   private:
     ProgState ps;
+    uint8_t spr_0;
+    uint8_t spr_1;
+    uint8_t led;
     int state_mins;
     int state_ticks;
     int state_mins_ticks;
     int num_mins_ticks;
 
 };
-
 
 class AnyButton {
 
@@ -172,7 +190,7 @@ class AnyButton {
     uint8_t b_state_0;
     uint8_t b_state_1;
     uint8_t b_state_2;
-    
+
   };
 
 int AnyButton::b_idx = 0;
@@ -193,10 +211,13 @@ class selButton : public AnyButton {
 
 class addButton : public AnyButton {
   public:
-    addButton(BlinkCtrl b, uint8_t but):AnyButton(but) { b_obj = b; }
+  
+    addButton(uint8_t but):AnyButton(but) { }
+
+    void setBlinker(BlinkCtrl *b) { b_obj = b; }
 
   private:
-    BlinkCtrl b_obj;
+    BlinkCtrl *b_obj;
 
     void handleButAction() {
 
@@ -207,7 +228,7 @@ class addButton : public AnyButton {
       } else
       if (ps.runState == true) {
         ps.reset();
-        b_obj.reset();
+        b_obj->reset();
       }
 
       if ( ps.setState == true && ps.minsLeft < 10 ) {
@@ -228,6 +249,11 @@ class CountDown {
       led_1 = L1;
     }
 
+    void setSprinklers(uint8_t S0, uint8_t S1) {
+      spr_0 = S0;
+      spr_1 = S1;
+    }
+
     bool checkTime() {
 
       if (setState_prev && !ps.setState && ps.runState) {
@@ -235,8 +261,14 @@ class CountDown {
         endTime = millis() + 60000*ps.minsLeft;
 
         // Turn on sprinkler corresponding to selected LED
-        if      (digitalRead(led_0)) { Serial.println("Turn on sprinkler 0"); }
-        else if (digitalRead(led_1)) { Serial.println("Turn on sprinkler 1"); }
+        if      (digitalRead(led_0)) {
+          Serial.println("Turn on sprinkler 0");
+          digitalWrite(spr_0, HIGH);
+        }
+        else if (digitalRead(led_1)) {
+          Serial.println("Turn on sprinkler 1");  
+          digitalWrite(spr_1, HIGH);       
+        }
         Serial.print("minsLeft: ");
         Serial.println(ps.minsLeft);
 
@@ -246,9 +278,8 @@ class CountDown {
         unsigned long nextMin = endTime - 60000*(ps.minsLeft-1);
 
         if (currTime >= endTime) {
-          Serial.println("minsLeft and runState set to 0");
+          Serial.println("minsLeft and set to 0");
           ps.minsLeft = 0;
-          ps.runState = 0;
         }
         else if ( currTime > nextMin ) {
           ps.minsLeft--;
@@ -265,6 +296,8 @@ class CountDown {
     ProgState ps;
     uint8_t led_0;
     uint8_t led_1;
+    uint8_t spr_0;
+    uint8_t spr_1;
     unsigned long endTime;
     bool setState_prev;
 };
@@ -272,9 +305,9 @@ class CountDown {
 //------------------------------------------------------------
 // Create globally scoped objects
 ProgState pstate = ProgState();
-BlinkCtrl blinker = BlinkCtrl();
+BlinkCtrl blinker = BlinkCtrl(LED_BUILTIN, SPRINKLER_0_PIN, SPRINKLER_1_PIN);
 selButton selectBut = selButton(SEL_SPRNKLR_BTN);
-addButton addTimeBut = addButton(blinker, ADD_TIME_BTN);
+addButton addTimeBut = addButton(ADD_TIME_BTN);
 AnyButton allButtons = AnyButton(pstate);
 CountDown countDwnTimer = CountDown(pstate, LED_0_PIN, LED_1_PIN);
 
@@ -285,7 +318,6 @@ void setup() {
   Serial.begin(9600);
 
   pstate.reset();
-  blinker.reset();
   
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -293,6 +325,16 @@ void setup() {
   pinMode(LED_1_PIN, OUTPUT);
   digitalWrite(LED_0_PIN, HIGH);
   digitalWrite(LED_BUILTIN, LOW);
+
+  pinMode(SPRINKLER_0_PIN, OUTPUT);
+  digitalWrite(SPRINKLER_0_PIN, LOW);
+  pinMode(SPRINKLER_1_PIN, OUTPUT);
+  digitalWrite(SPRINKLER_1_PIN, LOW);
+  
+  blinker.reset();
+  addTimeBut.setBlinker(&blinker);
+    
+  countDwnTimer.setSprinklers(SPRINKLER_0_PIN, SPRINKLER_1_PIN);
 
   allButtons.setup();
 
