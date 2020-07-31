@@ -4,11 +4,11 @@
 
 #include <arduino-timer.h>
 
-#define LED_0_PIN 2
-#define LED_1_PIN 3
+#define LED_0_PIN 3
+#define LED_1_PIN 2
 
-#define SPRINKLER_0_PIN 6
-#define SPRINKLER_1_PIN 7
+#define SPRINKLER_0_PIN 7
+#define SPRINKLER_1_PIN 6
 
 #define SEL_SPRNKLR_BTN A3
 #define ADD_TIME_BTN    A4
@@ -62,6 +62,12 @@ class BlinkCtrl {
     void setup(ProgState *p) {
       ps = p;
       reset();
+      pinMode(led, OUTPUT);
+      digitalWrite(led, LOW);
+      pinMode(spr_0, OUTPUT);
+      digitalWrite(spr_0, LOW);
+      pinMode(spr_1, OUTPUT);
+      digitalWrite(spr_1, LOW);
     }
 
     void serialPrint() {
@@ -245,7 +251,13 @@ class CountDown {
       spr_1 = S1;
     }
 
-    void setup(ProgState *p) { ps = p; }
+    void setup(ProgState *p) {
+      ps = p;
+      pinMode(led_0, OUTPUT);
+      digitalWrite(led_0, HIGH);
+      pinMode(led_1, OUTPUT);
+      digitalWrite(led_1, LOW);
+    }
 
     bool checkTime() {
 
@@ -309,22 +321,12 @@ auto timer = timer_create_default(); // create a timer with default settings
 void setup() {
   Serial.begin(9600);
 
-  // initialize digital pin LED_BUILTIN as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(LED_0_PIN, OUTPUT);
-  pinMode(LED_1_PIN, OUTPUT);
-  digitalWrite(LED_0_PIN, HIGH);
-  digitalWrite(LED_BUILTIN, LOW);
-
-  pinMode(SPRINKLER_0_PIN, OUTPUT);
-  digitalWrite(SPRINKLER_0_PIN, LOW);
-  pinMode(SPRINKLER_1_PIN, OUTPUT);
-  digitalWrite(SPRINKLER_1_PIN, LOW);
-  
   pstate.setup();
+
+  // Class and pin setup
   blinker.setup(&pstate);
   selectBut.setup(&pstate);
-  addTimeBut.setup(&pstate, &blinker);   
+  addTimeBut.setup(&pstate, &blinker);
   countDwnTimer.setup(&pstate);
 
   timer.every(25, [](void *)->bool{return blinker.setProgress();});
