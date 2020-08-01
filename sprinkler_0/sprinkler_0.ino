@@ -94,8 +94,10 @@ class BlinkCtrl {
       serialPrint();
       state_mins = 0;
       state_ticks = 0;
+      state_mins_ticks = 0;
       digitalWrite(spr_0, LOW);
       digitalWrite(spr_1, LOW);
+      digitalWrite(led, LOW);
     }
 
     bool setProgress() {   // called from timer function lambda wrapper
