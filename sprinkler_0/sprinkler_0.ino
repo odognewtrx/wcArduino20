@@ -20,6 +20,12 @@
 #define TICKS_MIN_L 12
 #define TICKS_PAUSE 36
 
+/*
+  ProgState
+    - Hold program states shared by other objects.
+    - One instance created and passed by pointer.
+    - Implements one state transition (maybe more should be moved here).
+*/
 class ProgState {
   public:
 
@@ -48,6 +54,13 @@ class ProgState {
     }
 };
 
+/*
+  BlinkCtrl
+    - setup() code for initializing blink LED and sprinkler control pins.
+    - Flashes blink LED on set minute button pushes.
+    - Flashes blink LED with number of minutes left when running.
+    - Turns off sprinklers on a reset and when run time expires.
+*/
 class BlinkCtrl {
 
   public:
@@ -131,6 +144,14 @@ class BlinkCtrl {
     int num_mins_ticks;
 };
 
+/*
+  AnyButton
+    - Base class with generic state management for buttons.
+    - setup() phase include button pinMode settings.
+    - Button transitions checked on 3 sucessive short intervals for new values.
+    - Transition is checked on longer interval.
+    - Handle button function is virtual.
+*/
 class AnyButton {
 
   uint8_t button;
@@ -186,6 +207,10 @@ class AnyButton {
 
   };
 
+/*
+  selButton
+    - Select sprinkler button derived class with handler.
+*/
 class selButton : public AnyButton {
   public:
     selButton(uint8_t but):AnyButton(but) {}
@@ -205,6 +230,10 @@ class selButton : public AnyButton {
     }
 };
 
+/*
+  addButton
+    - Add time/cancel button derived class with handler.
+*/
 class addButton : public AnyButton {
   public:
   
@@ -241,6 +270,12 @@ class addButton : public AnyButton {
     }
 };
 
+/*
+  CountDown
+    - Turn sprinkler on at start of run state. (Use select LED hardware state.)
+    - Check running time and subtract minutes each 60 sec. Reaching 0 triggers
+      other classes to complete the run.
+*/
 class CountDown {
 
   public:
