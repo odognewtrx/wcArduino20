@@ -47,7 +47,7 @@ class ProgState {
     
     // Blinker control will execute this at start of it's cycle
     void detect_runState() {
-      if (setState==true && runState==false && millis()>runMillis) {
+      if (setState && !runState && millis()>runMillis) {
         setState = false;
         runState = true;
       }
@@ -101,7 +101,7 @@ class BlinkCtrl {
     bool setProgress() {   // called from timer function lambda wrapper
 
       ps->detect_runState();
-      if (ps->runState == false) return true;
+      if (!ps->runState) return true;
 
       if (ps->runState && ps->minsLeft==0 ) {
         serialPrint();
@@ -174,8 +174,8 @@ class AnyButton {
       b_state_1 = b_state_2;
       b_state_2 = digitalRead(button);
 
-      if (butState==false && b_state_0==LOW  && b_state_1==LOW  && b_state_2==LOW)  butState = true;
-      if (butState==true  && b_state_0==HIGH && b_state_1==HIGH && b_state_2==HIGH) butReleased = true;
+      if (!butState && b_state_0==LOW  && b_state_1==LOW  && b_state_2==LOW)  butState = true;
+      if (butState  && b_state_0==HIGH && b_state_1==HIGH && b_state_2==HIGH) butReleased = true;
       return true; // continue timer
     }
 
@@ -184,10 +184,10 @@ class AnyButton {
     bool handleButton() {  // called from timer function lambda wrapper
 
       // Handle condition
-      if (butState==true && prevButState==false && butReleased==false) handleButAction();
+      if (butState && !prevButState && !butReleased) handleButAction();
 
       // Reset condition
-      if (butState==true && butReleased==true) {
+      if (butState && butReleased) {
         butState = false;
         butReleased = false;
       }
@@ -223,7 +223,7 @@ class selButton : public AnyButton {
 
     ProgState *ps;
     void handleButAction() {
-      if (ps->runState == false) {
+      if (!ps->runState) {
         digitalWrite(LED_0_PIN, !digitalRead(LED_0_PIN)); // toggle LED 0
         digitalWrite(LED_1_PIN, !digitalRead(LED_0_PIN)); // set to opposite of the other
       }
@@ -251,17 +251,17 @@ class addButton : public AnyButton {
 
     void handleButAction() {
 
-      if (ps->setState == false && ps->runState == false) {
+      if (!ps->setState && !ps->runState) {
         ps->setState = true;
         ps->runMillis = millis() + SET_PERIOD;
         Serial.println("got here start Set");
       } else
-      if (ps->runState == true) {
+      if (ps->runState) {
         ps->reset();
         b_obj->reset();
       }
 
-      if ( ps->setState == true && ps->minsLeft < 10 ) {
+      if ( ps->setState && ps->minsLeft < 10 ) {
         digitalWrite(LED_BUILTIN, HIGH);
         delay(75);
         digitalWrite(LED_BUILTIN, LOW);
