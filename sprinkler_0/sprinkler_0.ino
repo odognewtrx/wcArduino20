@@ -352,6 +352,9 @@ CountDown countDwnTimer = CountDown(LED_0_PIN, LED_1_PIN, SPRINKLER_0_PIN, SPRIN
 
 auto timer = timer_create_default(); // create a timer with default settings
 
+#define F_wrap(F) [](void *)->bool{return F();}   // Create function reference wrapper for passing non-static class function
+                                                  // to timers. Defines a function that takes void * and returns bool.
+
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(9600);
@@ -364,15 +367,15 @@ void setup() {
   addTimeBut.setup(&pstate, &blinker);
   countDwnTimer.setup(&pstate);
 
-  timer.every(25, [](void *)->bool{return blinker.setProgress();});
+  timer.every(25, F_wrap(blinker.setProgress) );
 
-  timer.every(20,  [](void *)->bool{return selectBut.checkButton();});
-  timer.every(400, [](void *)->bool{return selectBut.handleButton();});
+  timer.every(20,  F_wrap(selectBut.checkButton) );
+  timer.every(400, F_wrap(selectBut.handleButton) );
 
-  timer.every(20,  [](void *)->bool{return addTimeBut.checkButton();});
-  timer.every(400, [](void *)->bool{return addTimeBut.handleButton();});
+  timer.every(20,  F_wrap(addTimeBut.checkButton) );
+  timer.every(400, F_wrap(addTimeBut.handleButton) );
 
-  timer.every(1000, [](void *)->bool{return countDwnTimer.checkTime();});
+  timer.every(1000, F_wrap(countDwnTimer.checkTime) );
 }
 
 void loop() {
