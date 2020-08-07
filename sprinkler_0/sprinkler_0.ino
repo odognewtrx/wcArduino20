@@ -4,14 +4,14 @@
 
 #include <arduino-timer.h>
 
-#define LED_0_PIN 3
-#define LED_1_PIN 2
+#define LED_0_PIN A4
+#define LED_1_PIN A5
 
 #define SPRINKLER_0_PIN 7
 #define SPRINKLER_1_PIN 6
 
 #define SEL_SPRNKLR_BTN A3
-#define ADD_TIME_BTN    A4
+#define ADD_TIME_BTN    A2
 
 #define SET_PERIOD 20000         // Allow 20 sec for setting runtime
 
