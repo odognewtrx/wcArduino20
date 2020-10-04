@@ -291,9 +291,9 @@ class CountDown {
     void setup(ProgState *p) {
       ps = p;
       pinMode(led_0, OUTPUT);
-      digitalWrite(led_0, HIGH);
+      digitalWrite(led_0, LOW);
       pinMode(led_1, OUTPUT);
-      digitalWrite(led_1, LOW);
+      digitalWrite(led_1, HIGH);
     }
 
     bool checkTime() {
