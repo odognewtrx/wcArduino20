@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/snap/arduino/current/tools/**",
+                "/snap/arduino/current/hardware/arduino/avr/**",
+                "/snap/arduino/current/hardware/tools/avr/avr/include/**"
+            ],
+            "forcedInclude": [
+                "/snap/arduino/current/hardware/arduino/avr/cores/arduino/Arduino.h"
+            ],
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/bin/gcc",
+            "cStandard": "gnu18",
+            "cppStandard": "gnu++14"
+        }
+    ],
+    "version": 4
+}
