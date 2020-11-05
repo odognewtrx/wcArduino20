@@ -12,6 +12,7 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "compilerPath": "/bin/gcc",
+            "compilerArgs": ["-DARDUINO=183"],
             "cStandard": "gnu18",
             "cppStandard": "gnu++14"
         }
