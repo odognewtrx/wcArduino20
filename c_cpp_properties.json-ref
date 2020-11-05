@@ -3,6 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
+                "${workspaceFolder}/libraries/**",
                 "/snap/arduino/current/tools/**",
                 "/snap/arduino/current/hardware/arduino/avr/**",
                 "/snap/arduino/current/hardware/tools/avr/avr/include/**"
@@ -12,7 +13,7 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "compilerPath": "/bin/gcc",
-            "compilerArgs": ["-DARDUINO=183"],
+            "compilerArgs": ["-DARDUINO=183", "-DUSBCON"],
             "cStandard": "gnu18",
             "cppStandard": "gnu++14"
         }
